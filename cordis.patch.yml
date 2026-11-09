@@ -1,0 +1,4 @@
+# 母题工作台 bundle patch：同一包提供 Host 半边与浏览器半边。
+- insert:
+    - id: atelier
+      name: 'dsh-atelier'

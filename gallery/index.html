@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>母题工作台 · dsh-atelier</title>
+<script src="scheme.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <aside class="nav">
+    <div class="brand"><span class="logo">A</span><div><strong>母题工作台</strong><small>dsh-atelier</small></div></div>
+    <nav id="nav"></nav>
+    <div class="nav-foot"><div id="navStatus">连接中…</div><button class="link" id="btnAgent">交给 Agent ↗</button></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><h1 id="pageTitle">总台</h1><p id="pageSub"></p></div><div class="top-actions"><button class="btn ghost" id="btnRefresh">刷新</button></div></header>
+    <div id="toast" class="toast" hidden></div>
+    <section id="view" class="view"></section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
