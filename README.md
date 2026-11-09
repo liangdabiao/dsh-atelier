@@ -3,6 +3,9 @@
 DeepSeek Harness 0.2.x 插件。把「一个内容母题 → 多平台成品 → 发布后校准 → 经验规则」做成 dsh 原生能力：
 **对话里 Agent 用工具跑链路，侧栏页面做人工审核与查看**；TikHub 贯穿创作前的信息来源与发布后的数据反馈，apiz-cli 负责可选生图。
 
+<img width="1505" height="1194" alt="image" src="https://github.com/user-attachments/assets/30468ed4-c99f-43ba-9100-5d1ac434fc26" />
+
+
 - 目标宿主：`0.2.1-rc.5` 稳定线（`engines.dsh: >=0.2.1-rc.2 <0.3.0`）
 - 零 npm 依赖：Host 纯 ESM 源码，`client` 用 `scripts/build.mjs` 拼成 ModuleLoader 单文件，装完即用
 - 数据：`$DSH_HOME/atelier/`（state.json 原子写 + mtime 重读 + 串行队列；settings.json 0600；raw/ assets/ exports/）
