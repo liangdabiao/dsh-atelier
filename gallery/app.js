@@ -134,7 +134,13 @@
         run(result.action || (S.last && S.last.action), args, { label: '确认执行' })
       } }, '确认执行（会消耗额度）'))
     }
-    if (result && /key|未配置|未登录|没有连上|模型/i.test(String(result.error || result.summary || ''))) {
+    if (result && result.scope && String(result.scope).indexOf('host-model') === 0) {
+      // 宿主模型侧的问题：插件设置页里没有对应开关，要明确指向 dsh 设置
+      row.appendChild(el('button', { class: 'btn sm soft', onclick: function () { goto('settings') } }, '查看本插件设置'))
+      row.appendChild(el('button', { class: 'btn sm ghost', onclick: function () {
+        run('modelcheck', {}, { label: '模型自检' })
+      } }, '重试模型自检'))
+    } else if (result && /key|未配置|未登录|没有连上|模型/i.test(String(result.error || result.summary || ''))) {
       row.appendChild(el('button', { class: 'btn sm soft', onclick: function () { goto('settings') } }, '去设置'))
     }
     row.appendChild(el('button', { class: 'btn sm ghost', onclick: function () { renderResult(); document.getElementById('result').scrollIntoView({ block: 'nearest' }) } }, '查看结果'))
@@ -343,6 +349,17 @@
     if (r.needsConfirm) row.appendChild(el('button', { class: 'btn sm', onclick: function () {
       run(r.action, Object.assign({}, r.args, { confirm: true }), { label: '确认执行' })
     } }, '确认执行（会消耗额度）'))
+    // 宿主模型侧的问题要单独说清：去 dsh 设置换通道，不是本插件的设置
+    if (r.scope && String(r.scope).indexOf('host-model') === 0) {
+      box.appendChild(el('div', { class: 'notice' },
+        '这是 dsh 默认模型侧的凭据问题，本插件不配置模型密钥、插件设置页里也没有对应开关。请打开 dsh 设置 → 模型，换一个可用通道或重新登录后再点「重试」。'))
+      row.appendChild(el('button', { class: 'btn sm', onclick: function () {
+        run('modelcheck', {}, { label: '模型自检' })
+      } }, '重试模型自检'))
+      if (d.provider || d.model) {
+        box.appendChild(el('div', { class: 'muted' }, '当前宿主模型：' + (d.provider || '?') + ' / ' + (d.model || '?')))
+      }
+    }
     if (r.nextStep) box.appendChild(el('div', { class: 'muted' }, '建议：' + r.nextStep))
     var d = r.data || {}
     if (d.content) row.appendChild(el('button', { class: 'btn sm soft', onclick: function () { download(d.filename || '稿件.md', d.content) } }, '重新下载'))
@@ -449,6 +466,13 @@
         badge('模型：用 dsh 当前默认模型', 'brand'),
         badge('apiz 生图：CLI 自管', 'brand'),
         badge('平台规格 ' + ((h.platformSpecs && h.platformSpecs.count) || 0) + ' 个（参考值）', '')))
+    // 模型不可用时在总台就报警，别让用户点拆解才炸
+    var modelInfo = h.model || {}
+    var modelWarn = null
+    if (!modelInfo.available) {
+      modelWarn = el('div', { class: 'notice warn' },
+        'dsh 里还没有可用的默认模型，AI 类步骤（拆解 / 方向 / 出稿 / 体检 / 派生）会失败。请在 dsh 设置 → 模型里选一个模型；采集、登记、回查、复盘不依赖模型，照常可用。')
+    }
     var quick = card('一键采集（不用填参数）', '点一下就取回真实数据，取不到会如实说明，不会编。',
       el('div', { class: 'preset-grid' }, PRESETS.map(function (p) {
         return el('button', { class: 'preset', onclick: function () { run('radar', { endpointKey: p.key, params: p.params, limit: 20 }, { label: '采集' + p.label }) } },
@@ -471,7 +495,7 @@
       return item(d.title, d.platform + ' · v' + d.versionNo + ' · ' + ts(d.createdAt),
         el('details', {}, el('summary', {}, '展开正文'), el('pre', {}, (d.body || '').slice(0, 1500))))
     })
-    return [cards, next, helpLine('总台只负责看进度和起头；真正干活在后面几页，按顺序走就行。', '找素材', 'radar'), status, quick,
+    return [cards, next, helpLine('总台只负责看进度和起头；真正干活在后面几页，按顺序走就行。', '找素材', 'radar'), modelWarn, status, quick,
       el('div', { class: 'split' },
         card('最近素材', '', recentSignals.length ? list(recentSignals) : emptyState('还没有素材。', [{ label: '去采集', onclick: function () { goto('radar') } }])),
         card('最近稿件', '', recentDrafts.length ? list(recentDrafts) : emptyState('还没有稿件。', [{ label: '去出稿', onclick: function () { goto('drafts') } }])))]
@@ -789,7 +813,20 @@
   function pageSettings() {
     var t = (S.health && S.health.tikhub) || {}
     var spec = S.spec || {}, validation = spec.validation || {}
-    var keyCard = card('① TikHub API Key', '只存在本机 settings.json（0600），接口只回掩码。没有 key 也能用纯文本链路，但采集与回查会如实报「未取到」。',
+    var m = (S.health && S.health.model) || {}
+    var modelCard = card('① 宿主模型（AI 类步骤要用）',
+      '模型由 dsh 提供，本插件不存任何模型密钥。AI 类动作（拆解 / 方向 / 出稿 / 体检 / 派生 / 发布前判断 / 规则建议）都走 dsh 的默认模型；采集、登记、回查、复盘、审核不依赖模型。',
+      el('div', { class: 'row' },
+        el('span', { class: 'muted' }, m.available
+          ? ('当前：' + (m.provider || '?') + ' / ' + (m.model || '?'))
+          : (m.hint || '未检测到默认模型')),
+        el('button', { class: 'btn sm soft', onclick: function () {
+          run('modelcheck', {}, { label: '模型自检' })
+        } }, '测试模型连通')),
+      el('div', { class: 'muted' }, m.available
+        ? '如果这里报鉴权失败，请去 dsh 设置 → 模型换一个可用通道；插件设置页里没有这一项。'
+        : '请先在 dsh 设置 → 模型里选择默认模型。'))
+    var keyCard = card('② TikHub API Key', '只存在本机 settings.json（0600），接口只回掩码。没有 key 也能用纯文本链路，但采集与回查会如实报「未取到」。',
       form('set-key', [
         { key: 'tikhubKey', label: 'API Key', type: 'password', value: '', placeholder: '留空 = 不修改' },
       ], [{ value: 'save', label: '保存 Key' }], async function (v) {
@@ -807,7 +844,7 @@
           if (!window.confirm('确定清除本机保存的 TikHub Key？清除后采集与自动回查都会停用。')) return
           api('/api/settings', { method: 'DELETE' }).then(function () { toast('已清除密钥'); refresh() }, function (e) { toast(e.message, true) })
         } }, '清除密钥')))
-    var runCard = card('② 运行参数（一般用默认值就行）', '限流按 TikHub 官方口径：按次计费、每端点独立 RPS（多数 5/s）。',
+    var runCard = card('③ 运行参数（一般用默认值就行）', '限流按 TikHub 官方口径：按次计费、每端点独立 RPS（多数 5/s）。',
       form('set-run', [
         { key: 'rpm', label: '全局每分钟请求上限', type: 'number', value: String(t.rpm || 30) },
         { key: 'perEndpointRps', label: '每个端点每秒请求上限', type: 'number', value: String(t.perEndpointRps || 5) },
@@ -822,7 +859,7 @@
           toast('运行参数已保存'); await refresh()
         } catch (e) { toast(e.message, true) }
       }))
-    var imageCard = card('③ 生图（可选）', 'apiz 认证完全由本机 apiz-cli 管理，插件不接触密钥。',
+    var imageCard = card('④ 生图（可选）', 'apiz 认证完全由本机 apiz-cli 管理，插件不接触密钥。',
       form('set-image', [
         { key: 'apizBin', label: 'apiz 可执行文件路径（可空 = 用 PATH）', value: t.apizBin || '' },
         { key: 'defaultImageModel', label: '默认生图模型（可空 = 自动发现）', value: t.defaultImageModel || '' },
@@ -833,7 +870,7 @@
           toast('生图设置已保存'); await refresh()
         } catch (e) { toast(e.message, true) }
       }))
-    var specCard = card('④ 端点校验', '白名单端点会对照线上 TikHub OpenAPI 校验；发现失效路径会列出来，不会偷偷换路径出数。',
+    var specCard = card('⑤ 端点校验', '白名单端点会对照线上 TikHub OpenAPI 校验；发现失效路径会列出来，不会偷偷换路径出数。',
       el('div', { class: 'row' },
         el('button', { class: 'btn sm soft', onclick: async function () {
           toast('正在拉取线上 OpenAPI…')
@@ -854,6 +891,7 @@
     })
     actionTable.appendChild(tbody)
     return [helpLine('设置页可以完全不填：只想写稿的话，直接回总台开始就行。', '看总台', 'home'),
+      modelCard,
       el('div', { class: 'split' }, keyCard, runCard), el('div', { class: 'split' }, imageCard, specCard),
       boundary, el('details', { class: 'advanced' }, el('summary', {}, '高级：内部动作清单'), actionTable)]
   }
@@ -898,6 +936,7 @@
     var faq = card('常见问题', '',
       el('details', { open: 'open' }, el('summary', {}, '没填 TikHub key 能用吗？'), el('p', {}, '能。记灵感、拆解、出稿、体检、派生、导出、复盘都不依赖它。只有「采集」和「自动回查」需要 key，没配会明确报「未取到」，不会造假数据。')),
       el('details', {}, el('summary', {}, '出稿/拆解点下去说模型不可用？'), el('p', {}, '插件用的是 dsh 当前登录的默认模型，自己不带密钥。先在 dsh 里登录/选好模型再试；采集、登记、手工补录、规则审核不需要模型。')),
+      el('details', {}, el('summary', {}, '报错说「Your api key ... is invalid」？'), el('p', {}, '这是 dsh 那边默认模型的凭据过期/无效，不是本插件的 TikHub Key。处理办法：打开 dsh 设置 → 模型，换一个可用通道（例如账号登录）并确认；或重新登录该通道。也可以在本插件「设置」页点「测试模型连通」先自检，确认通过后再回来重试。插件设置页里没有这一项，因为模型密钥归 dsh 管。')),
       el('details', {}, el('summary', {}, '自动回查会不会偷偷花钱？'), el('p', {}, '不会，默认是关的。「到点提醒」只把一句话投递回 dsh 会话；只有你显式勾了「自动回查并写库」，才会真实调用 TikHub（按次计费）。每次调用都会记录在「调用留痕」里。')),
       el('details', {}, el('summary', {}, '平台规格是官方限制吗？'), el('p', {}, '不是。那是第三方发布器的静态常量，标了 advisory/verified=false，只作写作提示，不拦截、不预测表现；发布前以平台实际限制为准。')),
       el('details', {}, el('summary', {}, '导出/下载的文件在哪？'), el('p', {}, '点「下载 Markdown / HTML」会直接在浏览器里下载，同时在本机 $DSH_HOME/atelier/exports/ 存一份。结果面板里可以重新下载或复制内容。')),

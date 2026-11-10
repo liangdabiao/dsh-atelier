@@ -94,6 +94,8 @@ th { color: var(--muted); font-weight: 500; }
 .result.err { border-left-color: var(--danger); }
 .result .r-msg { margin: 6px 0; white-space: pre-wrap; word-break: break-word; }
 .result .row { margin-top: 8px; }
+.notice { background: rgba(192, 57, 43, .10); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 12px; line-height: 1.6; color: var(--text); }
+.notice.warn { background: rgba(214, 158, 46, .12); }
 .preview { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
 .spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 7px; margin: 7px 0; }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 12px; }

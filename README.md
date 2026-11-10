@@ -73,13 +73,43 @@ dsh --profile web --no-open --port 4399         # 浏览器打开侧栏「母题
 1. **TikHub key**：设置页填入，或设环境变量 `ATELIER_TIKHUB_API_KEY`。只存 `settings.json`（0600），接口只回掩码。
    Token 需要在 TikHub 后台勾选对应 Scopes。按次计费、每端点独立 RPS（多数 5/s）、429 自动按 Retry-After 退避。
 2. **模型**：用 dsh 当前默认模型（`agentDefaultModel` + `llm`），插件不配密钥。未登录时 ai 类动作显式失败。
+   - 若报 `Authentication Fails, Your api key: ****xxxx is invalid`，那是 **dsh 侧默认模型的凭据失效**，与本插件的 TikHub Key 无关。
+     去 **dsh 设置 → 模型** 换一个可用通道（如账号登录 `deepseek-account`）或重新登录；也可在本插件「设置」页点「测试模型连通」先自检。
+     插件设置页里没有模型开关——模型密钥归 dsh 管。插件会把这类错误翻译成中文并标注 `scope: host-model-auth`，不会把英文 API 报错原样丢给你。
 3. **apiz-cli**：`apiz auth login` 由 CLI 自管，插件不接触密钥；`APIZ_BIN` / `Config.apizBin` 可覆盖可执行路径。
 4. **离线联调**：`node scripts/mock-tikhub.mjs` + `ATELIER_TIKHUB_BASE_URL=http://127.0.0.1:4398`，无需 key 与额度。
+
+> 宿主模型通道失效是 dsh 侧最常见的一次性故障。若你用 API Key 通道（`deepseek-official`），Key 过期后所有 profile 都会报同一条错；
+> 改用账号登录通道（`deepseek-account`）可避免这一类问题。切换方式是在 profile 的 `cordis.patch.yml` 里覆盖 `agent-default-model`：
+> ```yaml
+> - id: agent-default-model
+>   name: "@deepseek-ai/dsh-agent-default-model"
+>   config:
+>     provider: deepseek-account
+>     model: deepseek-flash
+> ```
+
+### 模型输出不稳定怎么处理
+
+宿主默认模型是 reasoning 模型时，**思考过程与正文共享同一个 `max_tokens` 预算**：思考吃掉大部分额度后，正文可能为空或 JSON 写不完。
+插件已做的处理：
+
+- 按动作给足上限（出稿/派生 12000、其余 6000），并在请求时把推理强度降到 `low`（模型不支持时保持原样，不强行覆盖）。
+- 检测到输出被截断或正文为空时**明确报原因并放弃写库**，不会拿半截 JSON 充数。
+- JSON 有轻微损坏时（尾随逗号、缺闭合括号、正文里的裸英文引号）会先尝试修补再解析。
+
+若仍偶发失败，请重试该步；反复失败时在 dsh 设置里换一个非推理型模型通道，或把一次处理的素材量调小。
+
+### 诊断脚本
+
+`node scripts/check-host-key.mjs` 会检查 dsh 宿主的两条模型通道（API Key / 账号登录）是否还有效，并给出可直接粘贴的修复配置。
+只在鉴权层检查，不产生推理费用，不回显密钥明文。
 
 ## 双入口
 
 **对话（Agent）**：`atelier`（单工具 action 枚举）+ `atelier_query`（只读）。
-action：`capture / radar / evidence / deconstruct / angles / draft / review / derive / watch / predict / feedback / retro / rule / image / spec / export`。
+action：`capture / radar / evidence / deconstruct / angles / draft / review / derive / watch / predict / feedback / retro / rule / image / spec / export / modelcheck`。
+`modelcheck` 做模型连通性自检（AI 类动作报鉴权/额度问题时先跑它）。
 `payload` **直接传参数对象**（不要写成 JSON 字符串）；旧的字符串写法仍兼容。高成本动作把 `confirm` 设为 true。不填 id 时多数动作自动使用最近一条记录。
 
 ```

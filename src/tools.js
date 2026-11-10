@@ -51,7 +51,7 @@ export function createTools(ctx) {
       properties: {
         action: {
           type: 'string', enum: ACTION_KEYS,
-          description: `动作：${ACTION_KEYS.join(' / ')}。建议顺序 radar/evidence 采集 → deconstruct 拆解 → angles 方向 → draft 出稿 → review 体检 → derive 派生 → predict 锁定判断 → watch 登记作品 → feedback 回查 → retro 校准 → rule 规则建议（人工审核后才激活）。不填 id 时大多数动作自动使用最近一条记录。spec 可查平台文案规格 {"platform":"小红书"} 或 {"listPlatforms":true}。`,
+          description: `动作：${ACTION_KEYS.join(' / ')}。建议顺序 radar/evidence 采集 → deconstruct 拆解 → angles 方向 → draft 出稿 → review 体检 → derive 派生 → predict 锁定判断 → watch 登记作品 → feedback 回查 → retro 校准 → rule 规则建议（人工审核后才激活）。不填 id 时大多数动作自动使用最近一条记录。spec 可查平台文案规格 {"platform":"小红书"} 或 {"listPlatforms":true}。modelcheck 做模型连通性自检（AI 类动作报鉴权/额度问题时先跑它）。`,
         },
         payload: {
           type: 'object',
@@ -130,7 +130,7 @@ export function createTools(ctx) {
     async execute(args, exec) {
       rememberAgent(exec?.agent)
       check(args, this.parameters)
-      const result = queryState(args.what, { id: args.id, keyword: args.keyword, limit: args.limit })
+      const result = queryState(args.what, { id: args.id, keyword: args.keyword, limit: args.limit }, ctx)
       return { ok: Boolean(result.ok), summary: (result.summary || result.error || '').slice(0, 8000), data: JSON.stringify(result.data || {}).slice(0, 30_000) }
     },
   }

@@ -63,6 +63,26 @@ check(/installAutomation/.test(read('src/host.js')), 'Host 必须装载定时自
 check(/type: 'object'/.test(read('src/tools.js')) && /normalizePayload/.test(read('src/tools.js')), '工具 payload 应直接收对象')
 check(/怎么用/.test(read('README.md')), 'README 要有普通用户向的使用说明')
 
+// 宿主模型错误的可执行性守卫：
+// 实测踩过的坑——宿主默认模型的 key 失效时，插件把英文 API 报错原样透出，
+// 还把用户导到插件自己的设置页（那里根本没有模型开关），用户无从下手。
+const ai = read('src/ai.js')
+check(/classifyModelError/.test(ai), '必须有模型错误分类器')
+check(/host-model-auth/.test(ai) && /host-model-quota/.test(ai), '模型错误要分类（鉴权 / 额度 / 网络）')
+check(/scope/.test(ai) && /scope/.test(read('src/pipeline.js')), '错误来源要通过 scope 透传到调用方')
+check(/modelcheck/.test(read('src/pipeline.js')), '要有模型连通性自检动作')
+check(/host-model/.test(app), '页面要按 scope 分流，不能把宿主模型问题导到插件设置页')
+check(/modelcheck/.test(app), '页面要提供模型自检入口')
+
+// 模型输出稳定性守卫：
+// 真机实测两次踩坑——(1) reasoning 模型思考吃光 max_tokens 导致正文为空/JSON 写不完；
+// (2) 模型在 JSON 字符串里写未转义的英文双引号。两类都会让解析失败。
+check(/max-tokens/.test(ai), '要识别宿主的 max-tokens 截断（实测 finish kind 取值）')
+check(/model-truncated/.test(ai) && /model-empty-output/.test(ai), '截断与空回复要有独立分类')
+check(/tryRepairJson|escapeInnerQuotes/.test(ai), 'JSON 要有容错修补能力')
+check(/relaxReasoningEffort/.test(ai), '结构化任务要能降低推理强度，给正文留预算')
+check(/MODEL_MAX_TOKENS/.test(read('src/pipeline.js')), '各动作要按输出体量给不同的 token 上限')
+
 // 文档一致性守卫：三处数据纪律必须同在，避免某处被改漏（借 dsh-seekmoney 实测做法）
 const skill = read('skills/atelier-workflow/SKILL.md')
 const host = read('src/host.js')
@@ -70,6 +90,8 @@ const skills = read('src/skills.js')
 check(/禁止编造/.test(skill) && /禁止编造/.test(host), 'SKILL 与系统提示都要有「禁止编造」')
 check(/不要用 web 搜索结果冒充平台数据/.test(skill) && /不要用 web 搜索结果冒充平台数据/.test(host), '都要有「不冒充平台数据」')
 check(/端点/.test(skills) && /白名单/.test(skills), 'Skill addendum 要说明端点白名单')
+check(/modelcheck/.test(skill), 'SKILL 要教 Agent 在模型报错时先自检并指向 dsh 设置')
+check(/dsh 设置/.test(skill), 'SKILL 要说明模型问题去 dsh 设置处理，不是插件设置')
 check(!/(?:sk|tk)-[A-Za-z0-9]{20,}/.test(read('src/settings.js')), '疑似硬编码密钥')
 
 if (errors.length) {

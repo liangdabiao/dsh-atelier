@@ -27,6 +27,7 @@ export const ACTIONS = {
   image: { label: 'apiz 生图', ai: false, needsConfirm: true },
   spec: { label: '端点校验 / 平台规格', ai: false, needsConfirm: false },
   export: { label: '导出稿件', ai: false, needsConfirm: false },
+  modelcheck: { label: '模型连通性自检', ai: false, needsConfirm: false },
 }
 
 const AI_ACTIONS = new Set(['deconstruct', 'angles', 'draft', 'review', 'derive', 'predict', 'retro'])
@@ -60,10 +61,19 @@ function activeRuleBlock(state) {
   return `\n必须遵守作者已审核激活的写作规则：\n${rules.map((r) => `- ${r.name}：${r.text}`).join('\n')}`
 }
 
+/**
+ * 各动作的输出体量差别很大：出稿要写正文，拆解只要摘要。
+ * 上限给小了会被长度截断，JSON 必然不完整。
+ */
+const MODEL_MAX_TOKENS = {
+  deconstruct: 6000, angles: 6000, draft: 12000, review: 6000,
+  derive: 12000, predict: 4000, rule: 6000,
+}
+
 /** 把模型输出收敛到白名单字段，防注入与超长。 */
 async function modelJson(ctx, action, context) {
   const { system, user } = buildPrompt(action, context)
-  const { text, model } = await callModel(ctx, { system, user })
+  const { text, model } = await callModel(ctx, { system, user, maxTokens: MODEL_MAX_TOKENS[action] || 6000 })
   const parsed = extractJson(text)
   return { value: sanitize(parsed), model }
 }
@@ -167,6 +177,40 @@ async function doEvidence(payload, options) {
     return ok(`取到 ${evidence.length} 条证据（${spec.label}）。`, { evidence, rawRef: result.rawRef, unverified: result.unverified })
   })
   return out.result
+}
+
+async function doModelCheck(ctx, payload) {
+  const info = modelInfo(ctx)
+  if (!info) {
+    return {
+      ok: false,
+      error: '当前没有可用模型：dsh 里还没选默认模型。',
+      nextStep: '在 dsh 设置 → 模型里选一个模型；这是宿主侧的事，本插件不配置模型密钥。',
+      scope: 'host-model-missing',
+      data: { provider: '', model: '' },
+    }
+  }
+  try {
+    // 极小的真实请求：只有真发出去才知道鉴权过没过
+    const { text } = await callModel(ctx, {
+      system: '只回复一个词：ok',
+      user: 'ping',
+      maxTokens: 16,
+    })
+    return {
+      ok: true,
+      summary: `模型连通正常（${info.provider} / ${info.model}）。`,
+      data: { provider: info.provider, model: info.model, replied: String(text || '').slice(0, 40) },
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err?.message || String(err),
+      nextStep: err?.nextStep || '',
+      scope: err?.scope || 'host-model-other',
+      data: { provider: info.provider, model: info.model },
+    }
+  }
 }
 
 async function doDeconstruct(ctx, payload) {
@@ -593,15 +637,17 @@ export async function runAction(ctx, action, payload = {}, options = {}) {
       case 'image': return await doImage(p)
       case 'spec': return await doSpec(p, options)
       case 'export': return await doExport(p)
+      case 'modelcheck': return await doModelCheck(ctx, p)
       default: return { ok: false, error: `动作 ${action} 未实现` }
     }
   } catch (err) {
-    return { ok: false, error: err?.message || String(err), nextStep: err?.nextStep || '' }
+    // scope 区分错误来源：宿主模型问题 vs 插件/TikHub 问题，页面据此给不同指引
+    return { ok: false, error: err?.message || String(err), nextStep: err?.nextStep || '', scope: err?.scope || '' }
   }
 }
 
 /** 只读检索，供 atelier_query 工具与页面使用。 */
-export function queryState(what, params = {}) {
+export function queryState(what, params = {}, ctx = null) {
   const state = store.readState()
   const limit = clampInt(params.limit, 1, 100, 20)
   const filterKeyword = (rows, fields) => {
@@ -621,7 +667,7 @@ export function queryState(what, params = {}) {
     return { ok: true, summary: stateSummary(state), data: state }
   }
   if (what === 'health' || what === 'status') {
-    return { ok: true, summary: stateSummary(state), data: health(state) }
+    return { ok: true, summary: stateSummary(state), data: health(state, ctx) }
   }
   if (what === 'automation') {
     const a = state.automation || { schedules: [], runs: [], lastSweep: '' }
@@ -652,13 +698,20 @@ export function stateSummary(state) {
     `快照 ${state.snapshots.length} / 规则 ${state.rules.filter((r) => r.status === 'active').length} 条已激活`
 }
 
-export function health(state = store.readState()) {
+export function health(state = store.readState(), ctx = null) {
+  const info = ctx ? modelInfo(ctx) : null
   return {
     ok: true, version: 1, summary: stateSummary(state),
     counts: Object.fromEntries(store.COLLECTIONS.map((c) => [c, state[c].length])),
     tikhub: publicSettings(), spec: specStatus(),
     platformSpecs: { count: allPlatformSpecs().length, advisory: platformSpecDoc.advisory, verified: platformSpecDoc.verified },
-    model: { note: '由 dsh 宿主提供，未单独配置密钥' },
+    model: {
+      note: '模型由 dsh 宿主提供，本插件不配置任何模型密钥',
+      provider: info?.provider || '',
+      model: info?.model || '',
+      available: Boolean(info),
+      hint: info ? '' : 'dsh 里还没有默认模型，AI 类动作（拆解/方向/出稿/体检/派生/判断/规则）会失败。',
+    },
     apiz: { note: '认证由 apiz CLI 自管，插件不接触密钥' },
     actions: Object.entries(ACTIONS).map(([key, v]) => ({ key, ...v })),
   }

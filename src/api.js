@@ -87,7 +87,7 @@ export async function handle(ctx, req, res, galleryDir) {
     const url = new URL(req.url, 'http://x')
     const path = url.pathname.slice(BASE.length) || '/'
 
-    if (path === '/api/health' && req.method === 'GET') return json(res, health())
+    if (path === '/api/health' && req.method === 'GET') return json(res, health(readState(), ctx))
     if (path === '/api/state' && req.method === 'GET') return json(res, readState())
     if (path === '/api/actions' && req.method === 'GET') {
       return json(res, Object.entries(ACTIONS).map(([key, v]) => ({ key, ...v })))
@@ -128,7 +128,7 @@ export async function handle(ctx, req, res, galleryDir) {
     }
     if (path === '/api/query' && req.method === 'POST') {
       const body = await readJson(req)
-      return json(res, queryState(String(body.what || 'state'), body || {}))
+      return json(res, queryState(String(body.what || 'state'), body || {}, ctx))
     }
     if (path === '/api/ops' && req.method === 'POST') {
       const body = await readJson(req)
