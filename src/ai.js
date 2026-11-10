@@ -74,11 +74,14 @@ ${OUTPUT_RULE}
 每个维度 1-5 分，issues 必须指向正文里的具体问题。`,
     user: `<data>${JSON.stringify({ title: draft?.title, body: String(draft?.body || '').slice(0, 8000) })}</data>`,
   }),
-  derive: ({ draft, platforms }) => ({
+  derive: ({ draft, platforms, specs }) => ({
     system: `你是多平台改写编辑。把母稿派生到指定平台，保持同一母题但适配各平台语态与长度。
 ${OUTPUT_RULE}
-格式：{"items":[{"platform":"...","title":"...","body":"..."}]}
-不要只做同义替换或改标题；每个平台要有独立的开头与结构。`,
+格式：{"items":[{"platform":"...","title":"...","body":"...","topics":["话题名（不带 #）"]}]}
+不要只做同义替换或改标题；每个平台要有独立的开头与结构。
+话题放进 topics 数组：不带 #、去重；证据或母稿里没出现的话题不要臆造。
+各平台规格（第三方常量，仅供参考，以平台实际限制为准）：
+${specs || '（未提供规格）'}`,
     user: `<data>${JSON.stringify({ title: draft?.title, body: String(draft?.body || '').slice(0, 8000), platforms })}</data>`,
   }),
   predict: ({ draft, platforms }) => ({

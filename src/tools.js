@@ -33,7 +33,7 @@ export function createTools(ctx) {
       properties: {
         action: {
           type: 'string', enum: ACTION_KEYS,
-          description: `动作：${ACTION_KEYS.join(' / ')}。radar 采集 → evidence 补证据 → deconstruct 拆解 → angles 方向 → draft 出稿 → review 体检 → derive 派生 → predict 锁定判断 → feedback 回查 → retro 校准 → rule 规则建议/审核。`,
+          description: `动作：${ACTION_KEYS.join(' / ')}。radar 采集 → evidence 补证据 → deconstruct 拆解 → angles 方向 → draft 出稿 → review 体检 → derive 派生 → predict 锁定判断 → feedback 回查 → retro 校准 → rule 规则建议/审核。spec 可查平台文案规格：payload 传 {"platform":"小红书"} 或 {"listPlatforms":true}；规格为第三方常量，仅供参考。`,
         },
         payload: { type: 'string', description: '该动作的参数，JSON 字符串（例如 {"endpointKey":"hot.search","params":{}}）。不传视为 {}。' },
         confirm: { type: 'boolean', description: '高成本动作（评论采集、生图）必须显式设为 true。' },

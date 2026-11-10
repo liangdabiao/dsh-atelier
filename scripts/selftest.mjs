@@ -19,7 +19,9 @@ check(/- id: atelier/.test(read('cordis.patch.yml')), 'cordis.patch.yml insert i
 
 for (const file of ['src/host.js', 'src/pipeline.js', 'src/tools.js', 'src/skills.js', 'src/api.js', 'src/store.js',
   'src/settings.js', 'src/ai.js', 'src/client.js', 'src/providers/tikhub.js', 'src/providers/openapi.js',
-  'src/providers/apiz.js', 'src/providers/endpoints.json', 'gallery/index.html', 'gallery/app.js',
+  'src/providers/apiz.js', 'src/providers/endpoints.json', 'src/providers/platform-specs.js',
+  'src/providers/platform-specs.json', 'scripts/extract-platform-specs.mjs',
+  'gallery/index.html', 'gallery/app.js',
   'gallery/style.css', 'gallery/scheme.js', 'skills/atelier-workflow/SKILL.md', 'README.md']) {
   check(existsSync(join(root, file)), `缺少文件 ${file}`)
 }
@@ -40,6 +42,15 @@ check(new Set(endpoints.map((e) => e.key)).size === endpoints.length, '端点 ke
 check(endpoints.every((e) => /^\/api\/v1\//.test(e.path)), '端点路径格式')
 check(endpoints.some((e) => e.group === 'feedback'), '缺少反馈端点')
 
+const specDoc = JSON.parse(read('src/providers/platform-specs.json'))
+check(specDoc.platforms.length === 15, '平台规格表应有 15 个平台')
+check(specDoc.platforms.every((p) => p.key && p.aliases.length && p.contentLimits && p.topic), '平台规格字段完整')
+check(specDoc.advisory === true && specDoc.verified === false, '规格表必须标注 advisory / verified=false（不得冒充平台官方限制）')
+const douyinSpec = specDoc.platforms.find((p) => p.key === 'douyin')
+check(douyinSpec?.contentLimits?.maxTitleLength === 30 && douyinSpec?.topic?.maxCount === 5, '抖音规格数值')
+check(specDoc.metricMap?.views === 'viewCount' && specDoc.metricFields?.works?.includes('watchTimeSeconds'), '统一指标字段对照')
+check(/platform-specs/.test(read('src/pipeline.js')), 'pipeline 应接入平台规格模块')
+
 // 文档一致性守卫：三处数据纪律必须同在，避免某处被改漏（借 dsh-seekmoney 实测做法）
 const skill = read('skills/atelier-workflow/SKILL.md')
 const host = read('src/host.js')
@@ -53,4 +64,4 @@ if (errors.length) {
   console.error('[selftest] 失败：\n- ' + errors.join('\n- '))
   process.exit(1)
 }
-console.log(`[selftest] 通过：${endpoints.length} 个白名单端点，文件树/产物/文档守卫全部 OK`)
+console.log(`[selftest] 通过：${endpoints.length} 个白名单端点 / ${specDoc.platforms.length} 个平台规格（advisory），文件树/产物/文档守卫全部 OK`)

@@ -37,6 +37,7 @@
     "build": "node scripts/build.mjs",
     "test": "node --test \"test/*.test.mjs\"",
     "selftest": "node scripts/selftest.mjs",
+    "extract:specs": "node scripts/extract-platform-specs.mjs",
     "prepack": "npm run build"
   }
 }

@@ -28,6 +28,23 @@ dsh --profile web --no-open --port 4399         # 浏览器打开侧栏「母题
 也可 `scripts/dev-sandbox.sh 4399` 在隔离的 `DSH_HOME` 里跑，不碰 `~/.dsh`。
 桌面版用户在插件页点「立即启用」；命令行 `desktop` profile 由 Electron 独占管理，请用 `web` profile 或新建 profile 验收。
 
+**让 AI 助手代装**：把下面这段粘给支持本地命令的 AI 助手即可（任一步失败就停，不假装装好）：
+
+```text
+请把 https://github.com/liangdabiao/dsh-atelier 安装到本机 DeepSeek Harness：
+1. 克隆/更新仓库，执行 npm run build、npm test、node scripts/selftest.mjs；
+2. 用 dsh plugin --profile web add link:<仓库绝对路径> 挂载，确认
+   dsh --profile web --dump-config 的输出里出现 id: atelier；
+3. 启动 dsh --profile web --no-open --port 4399，从启动日志取带 token 的 URL 打开
+   （0.2.x 会先换会话 cookie），确认侧栏出现「母题工作台」且 /atelier/api/health 返回 200；
+4. 新开会话，让 Agent 执行 atelier_query(what="health")，回报 platformSpecs.count
+   与 tikhub.configured。
+任何一步失败就停止并如实说明缺什么，不要跳过或用别的命令冒充成功。
+```
+
+**验收句**：新会话里发「用 atelier_query 查一下工作台健康状态，告诉我平台规格数量和 TikHub 是否已配置」。
+判据是**侧栏页面与对话工具两部分都通**；只看到页面、Agent 调不到工具，不算装完（0.2.x 装完需完全退出并重新打开客户端）。
+
 ## 配置
 
 1. **TikHub key**：设置页填入，或设环境变量 `ATELIER_TIKHUB_API_KEY`。只存 `settings.json`（0600），接口只回掩码。
@@ -48,8 +65,29 @@ atelier(action="deconstruct", payload="{}")
 atelier_query(what="evidence")
 ```
 
+查平台文案规格（不联网、不花额度）：
+```
+atelier(action="spec", payload="{\"platform\":\"小红书\"}")
+atelier(action="spec", payload="{\"listPlatforms\":true}")
+```
+
 **侧栏页面**：总台 / 信源工作台 / 拆解与方向 / 稿件与体检 / 复盘与规则 / 设置。
 页面与工具都调 `src/pipeline.js` 的 `runAction`，写同一份 `state.json`。
+稿件卡片会显示 `specCheck` 结果与话题，体检记录会单列「规格提示」条数。
+
+## 平台规格与指标字段对照
+
+`src/providers/platform-specs.json` 收录 **15 个平台**的文案 / 媒体 / 话题规格，来自 yikart/AiToEarn v2.5 的 `PlatformStaticMetadata` 常量表；
+有参考项目在本机时可用 `npm run extract:specs` 重新抽取，生成结果已随包提交，日常运行不需要该脚本。
+
+**诚实边界**：这是第三方为自己的发布器写的静态常量，**不是平台官方公布的限制，也未用各平台真实样本验真**（表内 `advisory: true / verified: false`）。
+只作写作阶段的合规提示，不拦截发布、不预测表现；发布前一律以平台实际限制为准。
+
+- `draft` / `derive`：把规格压成一行约束注入派生提示词，稿件落库时附 `topics[]`（去 `#`、精确去重、不臆造）与 `specCheck`；
+- `review`：模型只做质量诊断，规格合规另走**确定性检查**，issues 带 `path / code / limit / actual`，可定点改字段后重检；未收录平台跳过检查，不臆造限制；
+- `feedback`：原有 `metrics`（短名）保持不变，额外写 `metricsNormalized` 对照统一指标字段（`viewCount / playCount / likeCount / commentCount / collectCount / shareCount / saveCount / watchTimeSeconds ...`）；未知字段进 `unmapped` 保留，不丢数、不补造，复盘 baseline 增量仍按原 `metrics` 计算。
+
+数值示例：小红书 标题 ≤20 / 正文 ≤1000 / 9 图 / 5 话题；抖音 30 / 1000 / 12 图 / 5 话题；公众号 64 / 20000 / 20 图且不支持原生话题；B站 话题总长 ≤199。
 
 ## TikHub 双通道
 
@@ -84,6 +122,6 @@ TikTok 有专用 analytics；**抖音没有通用 analytics**，主要靠按 ID 
 
 ## 测试
 
-`npm test`（5 组 24 例：store / tikhub / api / pipeline / host）+ `node scripts/selftest.mjs`，全部离线、不花额度。
+`npm test`（6 组 32 例：store / tikhub / api / pipeline / host / spec）+ `node scripts/selftest.mjs`，全部离线、不花额度。
 测试覆盖：原子写与 mtime 重读、端点白名单对照官方 spec、401 不重试 / 404 建议 / 缓存命中不重复请求、
 采集与回查的证据链、origin 不混算、锁定不可覆盖、规则未审核不进 addendum、模型不可用显式失败、鉴权与 SSRF 防护。

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import * as store from './store.js'
 import { callEndpoint, endpoint, endpointList, feedbackEndpointFor, validateWhitelist, collectStats, BASE_URL } from './providers/tikhub.js'
 import { specStatus, fetchLiveSpec, specPaths, suggestPaths } from './providers/openapi.js'
+import { platformSpec, platformSpecDoc, allPlatformSpecs, normalizeTopics, checkDraftAgainstSpec, normalizeMetrics, specsForPrompt } from './providers/platform-specs.js'
 import * as apiz from './providers/apiz.js'
 import { callModel, buildPrompt, extractJson, sanitize, modelInfo } from './ai.js'
 import { publicSettings, saveSettings, clearSettings, ensureDirs, dataDir } from './settings.js'
@@ -24,7 +25,7 @@ export const ACTIONS = {
   retro: { label: '复盘校准', ai: false, needsConfirm: false },
   rule: { label: '规则建议 / 审核', ai: false, needsConfirm: false },
   image: { label: 'apiz 生图', ai: false, needsConfirm: true },
-  spec: { label: '端点校验 / 刷新', ai: false, needsConfirm: false },
+  spec: { label: '端点校验 / 平台规格', ai: false, needsConfirm: false },
   export: { label: '导出稿件', ai: false, needsConfirm: false },
 }
 
@@ -217,17 +218,20 @@ async function doDraft(ctx, payload) {
     campaign: payload.campaignTopic || payload.topic || '', angle: { kind: angle.kind, title: angle.title, rationale: angle.rationale },
     evidence, rules: activeRuleBlock(state),
   })
+  const platform = payload.platform || '母稿'
+  const topics = normalizeTopics(Array.isArray(value.topics) ? value.topics : String(value.body || ''), platformSpec(platform))
   return store.mutate((state) => {
     const parentId = payload.parentId || ''
     const previous = state.drafts.filter((d) => d.campaignId === (payload.campaignId || '') || d.id === parentId)
     const versionNo = previous.length ? Math.max(...previous.map((d) => d.versionNo || 1)) + 1 : 1
     const row = store.addRecord(state, 'drafts', {
-      campaignId: payload.campaignId || '', platform: payload.platform || '母稿', versionNo,
+      campaignId: payload.campaignId || '', platform, versionNo,
       parentId, title: String(value.title || angle.title || '未命名'),
       outline: Array.isArray(value.outline) ? value.outline : [],
       body: String(value.body || ''), changeLog: payload.changeLog || (parentId ? '迭代版本' : '初稿'),
-      angleId: angle.id, evidenceIds: evidence.map((e) => e.id), engine: model, status: 'draft',
+      topics: topics.topics, angleId: angle.id, evidenceIds: evidence.map((e) => e.id), engine: model, status: 'draft',
     })
+    row.specCheck = checkDraftAgainstSpec({ ...row, topics: topics.topics }, platform)
     if (parentId) store.relation(state, parentId, row.id, 'derived')
     for (const id of row.evidenceIds) {
       const ev = store.byId(state, 'evidence', id)
@@ -242,13 +246,19 @@ async function doReview(ctx, payload) {
   const draft = store.byId(state, 'drafts', payload.draftId || '') || state.drafts.at(-1)
   if (!draft) fail('找不到稿件。')
   const { value, model } = await modelJson(ctx, 'review', { draft })
+  // 规格合规是确定性检查，不交给模型，也不与质量诊断混为一谈。
+  const specCheck = checkDraftAgainstSpec(draft, draft.platform)
+  const specIssues = specCheck.issues.map((i) => ({
+    level: 'mid', path: i.path, code: i.code, text: `[规格·${i.path}] ${i.message}（仅供参考，以平台实际限制为准）`,
+  }))
   return store.mutate((state) => {
     const row = store.addRecord(state, 'assessments', {
       draftId: draft.id, dimensions: value.dimensions && typeof value.dimensions === 'object' ? value.dimensions : {},
-      issues: Array.isArray(value.issues) ? value.issues : [], suggestions: Array.isArray(value.suggestions) ? value.suggestions : [],
-      note: '仅质量诊断，非表现预测', engine: model,
+      issues: [...(Array.isArray(value.issues) ? value.issues : []), ...specIssues],
+      suggestions: Array.isArray(value.suggestions) ? value.suggestions : [],
+      specCheck, note: '质量诊断 + 平台规格合规提示（第三方常量，仅供参考）；不预测发布表现', engine: model,
     })
-    return ok(`完成稿件体检（${row.issues.length} 个问题）。`, { assessment: row })
+    return ok(`完成稿件体检（${row.issues.length} 个问题，其中规格 ${specIssues.length} 个）。`, { assessment: row })
   }).then(({ result }) => result)
 }
 
@@ -257,20 +267,25 @@ async function doDerive(ctx, payload) {
   const draft = store.byId(state, 'drafts', payload.draftId || '') || state.drafts.at(-1)
   if (!draft) fail('找不到母稿。')
   const platforms = Array.isArray(payload.platforms) && payload.platforms.length ? payload.platforms : ['小红书', '抖音', '公众号']
-  const { value, model } = await modelJson(ctx, 'derive', { draft, platforms })
+  const specs = specsForPrompt(platforms)
+  const { value, model } = await modelJson(ctx, 'derive', { draft, platforms, specs })
   const items = (Array.isArray(value.items) ? value.items : []).filter((x) => x && x.platform)
   if (!items.length) fail('模型没有返回任何派生稿，本次不写库。')
   return store.mutate((state) => {
     const created = items.slice(0, 8).map((x) => {
+      const platform = String(x.platform)
+      const topics = normalizeTopics(Array.isArray(x.topics) ? x.topics : String(x.body || ''), platformSpec(platform))
       const row = store.addRecord(state, 'drafts', {
-        campaignId: draft.campaignId, platform: String(x.platform), versionNo: 1, parentId: draft.id,
+        campaignId: draft.campaignId, platform, versionNo: 1, parentId: draft.id,
         title: String(x.title || draft.title), body: String(x.body || ''), outline: [], changeLog: '多渠道派生',
-        evidenceIds: draft.evidenceIds || [], engine: model, status: 'derived',
+        topics: topics.topics, evidenceIds: draft.evidenceIds || [], engine: model, status: 'derived',
       })
+      row.specCheck = checkDraftAgainstSpec({ ...row, topics: topics.topics }, platform)
       store.relation(state, draft.id, row.id, 'repurposed_as')
       return row
     })
-    return ok(`派生出 ${created.length} 个平台稿件，各自可回溯到母稿。`, { drafts: created })
+    const flagged = created.filter((r) => r.specCheck?.matched && !r.specCheck.ok).length
+    return ok(`派生出 ${created.length} 个平台稿件${flagged ? `（${flagged} 篇有规格提示）` : ''}，各自可回溯到母稿。`, { drafts: created })
   }).then(({ result }) => result)
 }
 
@@ -351,7 +366,7 @@ async function doFeedback(payload, options) {
     return store.mutate((state) => {
       const snap = store.addRecord(state, 'snapshots', {
         workRef: work.id || workKey, platform, workId: workKey, day, origin: 'manual',
-        metrics, metricsRaw: metrics, endpoint: 'manual', fetchedAt: new Date().toISOString(),
+        metrics, metricsNormalized: normalizeMetrics(metrics), metricsRaw: metrics, endpoint: 'manual', fetchedAt: new Date().toISOString(),
         note: payload.note || '手工补录',
       })
       return ok('已记录手工补录快照（origin=manual，复盘时与 API 数据分组展示）。', { snapshot: snap })
@@ -363,7 +378,7 @@ async function doFeedback(payload, options) {
     return store.mutate((state) => {
       const snap = store.addRecord(state, 'snapshots', {
         workRef: work.id || workKey, platform, workId: workKey, day, origin: 'api_failed',
-        metrics: {}, endpoint: 'unsupported', fetchedAt: new Date().toISOString(),
+        metrics: {}, metricsNormalized: normalizeMetrics({}), endpoint: 'unsupported', fetchedAt: new Date().toISOString(),
         note: '该平台暂无可用公开指标端点，请手工补录（视频号/公众号等）。',
       })
       return ok('该平台无自动回查端点，已标记需手工补录。', { snapshot: snap })
@@ -383,7 +398,7 @@ async function doFeedback(payload, options) {
     return store.mutate((state) => {
       const snap = store.addRecord(state, 'snapshots', {
         workRef: work.id || workKey, platform, workId: workKey, day, origin: 'api_failed',
-        metrics: {}, endpoint: key, error: err.message, fetchedAt: new Date().toISOString(),
+        metrics: {}, metricsNormalized: normalizeMetrics({}), endpoint: key, error: err.message, fetchedAt: new Date().toISOString(),
         note: '自动回查失败，未补造数据；请手工补录或稍后重试。',
       })
       pushCall(state, { ts: snap.fetchedAt, endpoint: key, status: 'error', error: err.message })
@@ -394,7 +409,7 @@ async function doFeedback(payload, options) {
   return store.mutate((state) => {
     const snap = store.addRecord(state, 'snapshots', {
       workRef: work.id || workKey, platform, workId: workKey, day, origin: 'api',
-      metrics, metricsRaw: result.rawSample, endpoint: key, rawRef: result.rawRef,
+      metrics, metricsNormalized: normalizeMetrics(metrics), metricsRaw: result.rawSample, endpoint: key, rawRef: result.rawRef,
       httpStatus: result.httpStatus, fetchedAt: result.fetchedAt,
       limited: result.limited || (key.startsWith('work.detail') || key.startsWith('note.detail') ? '公开互动数，非后台指标' : ''),
       note: Object.keys(metrics).length ? '' : '端点已返回，但未解析出标准指标字段；原始响应已留存，可人工核对。',
@@ -511,6 +526,13 @@ async function doImage(payload) {
 }
 
 async function doSpec(payload, options) {
+  if (payload.platform || payload.listPlatforms) {
+    const list = payload.listPlatforms ? allPlatformSpecs() : [platformSpec(payload.platform)].filter(Boolean)
+    return ok(list.length ?
+      `平台规格表：${list.length} 个平台（第三方常量，仅供参考，未用平台真实样本验真）。` :
+      '未收录该平台规格，不臆造限制。',
+    { platformSpecs: list, advisory: platformSpecDoc.advisory, verified: platformSpecDoc.verified, note: platformSpecDoc.note })
+  }
   if (payload.refresh) {
     const record = await fetchLiveSpec({ ...options, force: true })
     if (!record) return ok('线上 OpenAPI 同步失败，已保留上次缓存/白名单（60 秒内不重试）。', { status: specStatus() })
@@ -620,6 +642,7 @@ export function health(state = store.readState()) {
     ok: true, version: 1, summary: stateSummary(state),
     counts: Object.fromEntries(store.COLLECTIONS.map((c) => [c, state[c].length])),
     tikhub: publicSettings(), spec: specStatus(),
+    platformSpecs: { count: allPlatformSpecs().length, advisory: platformSpecDoc.advisory, verified: platformSpecDoc.verified },
     model: { note: '由 dsh 宿主提供，未单独配置密钥' },
     apiz: { note: '认证由 apiz CLI 自管，插件不接触密钥' },
     actions: Object.entries(ACTIONS).map(([key, v]) => ({ key, ...v })),

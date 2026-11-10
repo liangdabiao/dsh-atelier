@@ -1,0 +1,668 @@
+{
+  "source": "yikart/AiToEarn v2.5 — apps/aitoearn-server/src/core/channels/platforms/<platform>/<platform>.constants.ts (PlatformStaticMetadata)",
+  "generatedBy": "scripts/extract-platform-specs.mjs",
+  "generatedAt": "2026-11-10T02:10:12.289Z",
+  "advisory": true,
+  "verified": false,
+  "note": "第三方发布器的静态常量，非平台官方公布限制，未用各平台真实样本验真；仅作写作阶段的合规提示，发布前请以平台实际限制为准。",
+  "metricFields": {
+    "works": [
+      "viewCount",
+      "playCount",
+      "impressionCount",
+      "reachCount",
+      "likeCount",
+      "collectCount",
+      "commentCount",
+      "shareCount",
+      "saveCount",
+      "clickCount",
+      "engagementCount",
+      "watchTimeSeconds"
+    ],
+    "accounts": [
+      "fansCount",
+      "followingCount",
+      "workCount",
+      "readCount",
+      "viewCount",
+      "impressionCount",
+      "reachCount",
+      "likeCount",
+      "collectCount",
+      "forwardCount",
+      "commentCount",
+      "clickCount",
+      "engagementCount"
+    ],
+    "source": "apps/aitoearn-server/src/core/channels/platforms/platforms.interface.ts:434-475 (统一指标字段)"
+  },
+  "metricMap": {
+    "views": "viewCount",
+    "likes": "likeCount",
+    "comments": "commentCount",
+    "collects": "collectCount",
+    "shares": "shareCount"
+  },
+  "platforms": [
+    {
+      "key": "bilibili",
+      "aliases": [
+        "B站",
+        "b站",
+        "哔哩哔哩",
+        "bilibili"
+      ],
+      "displayName": "哔哩哔哩",
+      "contentLimits": {
+        "modes": [
+          "Video"
+        ],
+        "maxTitleLength": 79,
+        "maxBodyLength": 249,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 0,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": true,
+        "maxCount": null,
+        "maxTotalLength": 199
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png"
+        ],
+        "videoFormats": [
+          "mp4",
+          "flv"
+        ],
+        "maxVideoDuration": 5,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "douyin",
+      "aliases": [
+        "抖音",
+        "douyin"
+      ],
+      "displayName": "抖音",
+      "contentLimits": {
+        "modes": [
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": 30,
+        "maxBodyLength": 1000,
+        "maxTotalTextLength": 1000,
+        "maxMediaCount": null,
+        "maxImages": 12,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": true,
+        "maxCount": 5,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "bmp"
+        ],
+        "videoFormats": [
+          "mp4",
+          "avi",
+          "mkv",
+          "mov"
+        ],
+        "maxVideoDuration": 900,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "facebook",
+      "aliases": [
+        "Facebook",
+        "facebook",
+        "脸书"
+      ],
+      "displayName": "Facebook",
+      "contentLimits": {
+        "modes": [
+          "Text",
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": null,
+        "maxBodyLength": 63206,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 10,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": false,
+        "nativeField": false,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "gif",
+          "bmp",
+          "tiff"
+        ],
+        "videoFormats": [
+          "mp4",
+          "mov",
+          "avi"
+        ],
+        "maxVideoDuration": 3600,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "google-business",
+      "aliases": [
+        "谷歌商家",
+        "google-business",
+        "googleBusiness"
+      ],
+      "displayName": "Google 商家",
+      "contentLimits": {
+        "modes": [],
+        "maxTitleLength": null,
+        "maxBodyLength": null,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": null,
+        "maxVideos": null
+      },
+      "topic": {
+        "supported": false,
+        "nativeField": false,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [],
+        "videoFormats": [],
+        "maxVideoDuration": null,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "instagram",
+      "aliases": [
+        "Instagram",
+        "instagram",
+        "ins",
+        "IG"
+      ],
+      "displayName": "Instagram",
+      "contentLimits": {
+        "modes": [
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": null,
+        "maxBodyLength": 2200,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 10,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": false,
+        "maxCount": 30,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [],
+        "videoFormats": [],
+        "maxVideoDuration": null,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "kwai",
+      "aliases": [
+        "快手",
+        "kuaishou",
+        "kwai"
+      ],
+      "displayName": "快手",
+      "contentLimits": {
+        "modes": [
+          "Video"
+        ],
+        "maxTitleLength": 30,
+        "maxBodyLength": 1000,
+        "maxTotalTextLength": 1000,
+        "maxMediaCount": null,
+        "maxImages": 0,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": false,
+        "maxCount": 4,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "bmp",
+          "webp"
+        ],
+        "videoFormats": [
+          "mp4",
+          "avi",
+          "mkv",
+          "mov",
+          "webm"
+        ],
+        "maxVideoDuration": 1800,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "linkedin",
+      "aliases": [
+        "LinkedIn",
+        "linkedin",
+        "领英"
+      ],
+      "displayName": "LinkedIn",
+      "contentLimits": {
+        "modes": [
+          "Text",
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": 200,
+        "maxBodyLength": 3000,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 9,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": false,
+        "nativeField": false,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "gif"
+        ],
+        "videoFormats": [
+          "mp4"
+        ],
+        "maxVideoDuration": 600,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "pinterest",
+      "aliases": [
+        "Pinterest",
+        "pinterest"
+      ],
+      "displayName": "Pinterest",
+      "contentLimits": {
+        "modes": [
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": 100,
+        "maxBodyLength": 800,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 1,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": false,
+        "nativeField": false,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "bmp",
+          "jpg",
+          "jpeg",
+          "png",
+          "tiff",
+          "webp"
+        ],
+        "videoFormats": [
+          "mp4",
+          "m4v",
+          "mov"
+        ],
+        "maxVideoDuration": 300,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "rednote",
+      "aliases": [
+        "小红书",
+        "xhs",
+        "xiaohongshu",
+        "rednote",
+        "redNote"
+      ],
+      "displayName": "小红书",
+      "contentLimits": {
+        "modes": [
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": 20,
+        "maxBodyLength": 1000,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 9,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": true,
+        "maxCount": 5,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "bmp",
+          "webp"
+        ],
+        "videoFormats": [
+          "mp4",
+          "avi",
+          "mkv",
+          "mov",
+          "webm"
+        ],
+        "maxVideoDuration": 3600,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "threads",
+      "aliases": [
+        "Threads",
+        "threads"
+      ],
+      "displayName": "Threads",
+      "contentLimits": {
+        "modes": [
+          "Text",
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": null,
+        "maxBodyLength": 500,
+        "maxTotalTextLength": 500,
+        "maxMediaCount": null,
+        "maxImages": 10,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": true,
+        "maxCount": 1,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png"
+        ],
+        "videoFormats": [
+          "mp4",
+          "mov"
+        ],
+        "maxVideoDuration": 300,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "tiktok",
+      "aliases": [
+        "TikTok",
+        "tiktok",
+        "抖音海外"
+      ],
+      "displayName": "TikTok",
+      "contentLimits": {
+        "modes": [
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": null,
+        "maxBodyLength": 2200,
+        "maxTotalTextLength": 2200,
+        "maxMediaCount": null,
+        "maxImages": 35,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": false,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "webp"
+        ],
+        "videoFormats": [
+          "mp4",
+          "mov",
+          "webm"
+        ],
+        "maxVideoDuration": 600,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "twitter",
+      "aliases": [
+        "X",
+        "x",
+        "Twitter",
+        "twitter",
+        "推特"
+      ],
+      "displayName": "Twitter（X）",
+      "contentLimits": {
+        "modes": [
+          "Text",
+          "ImageText",
+          "Video"
+        ],
+        "maxTitleLength": 0,
+        "maxBodyLength": 280,
+        "maxTotalTextLength": 280,
+        "maxMediaCount": null,
+        "maxImages": 4,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": false,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "gif",
+          "webp"
+        ],
+        "videoFormats": [
+          "mp4",
+          "mov"
+        ],
+        "maxVideoDuration": 140,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "wechat-channels",
+      "aliases": [
+        "视频号",
+        "微信视频号",
+        "wxSph",
+        "wechat-channels",
+        "wechatChannels"
+      ],
+      "displayName": "微信视频号",
+      "contentLimits": {
+        "modes": [
+          "Video"
+        ],
+        "maxTitleLength": 16,
+        "maxBodyLength": 1000,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 9,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": true,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "bmp"
+        ],
+        "videoFormats": [
+          "mp4",
+          "avi",
+          "mkv",
+          "mov",
+          "flv",
+          "rmvb",
+          "wmv",
+          "webm"
+        ],
+        "maxVideoDuration": 3600,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "wechat-official",
+      "aliases": [
+        "公众号",
+        "微信公众号",
+        "wechat-official",
+        "wechatOfficial",
+        "wechat"
+      ],
+      "displayName": "微信公众号",
+      "contentLimits": {
+        "modes": [
+          "ImageText"
+        ],
+        "maxTitleLength": 64,
+        "maxBodyLength": 20000,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 20,
+        "maxVideos": null
+      },
+      "topic": {
+        "supported": false,
+        "nativeField": false,
+        "maxCount": null,
+        "maxTotalLength": null
+      },
+      "mediaRules": {
+        "imageFormats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "gif",
+          "bmp"
+        ],
+        "videoFormats": [],
+        "maxVideoDuration": null,
+        "minVideoDuration": null
+      }
+    },
+    {
+      "key": "youtube",
+      "aliases": [
+        "YouTube",
+        "youtube",
+        "油管"
+      ],
+      "displayName": "YouTube",
+      "contentLimits": {
+        "modes": [
+          "Video"
+        ],
+        "maxTitleLength": 100,
+        "maxBodyLength": 5000,
+        "maxTotalTextLength": null,
+        "maxMediaCount": null,
+        "maxImages": 0,
+        "maxVideos": 1
+      },
+      "topic": {
+        "supported": true,
+        "nativeField": true,
+        "maxCount": null,
+        "maxTotalLength": 500
+      },
+      "mediaRules": {
+        "imageFormats": [],
+        "videoFormats": [
+          "mp4",
+          "mov",
+          "avi",
+          "wmv",
+          "flv",
+          "mkv"
+        ],
+        "maxVideoDuration": 43200,
+        "minVideoDuration": null
+      }
+    }
+  ]
+}

@@ -281,11 +281,20 @@
           return op('export', { draftId: v.draftId, format: v.format })
         }))
     var rows = drafts.slice(-20).reverse().map(function (d) {
-      return item(d.title, d.platform + ' · v' + d.versionNo + ' · ' + (d.changeLog || '') + ' · ' + ts(d.createdAt) + (d.parentId ? ' · 父稿 ' + d.parentId : ''),
+      var sc = d.specCheck || {}
+      var specLine = !sc.matched ? '' : (sc.ok
+        ? '规格 ✓ ' + sc.displayName
+        : '规格提示 ' + sc.displayName + '：' + (sc.issues || []).map(function (i) { return i.message }).join('；'))
+      var topicsLine = (d.topics || []).length
+        ? '话题 ' + d.topics.map(function (t) { return '#' + t }).join(' ') : ''
+      var meta = [d.platform + ' · v' + d.versionNo + ' · ' + (d.changeLog || '') + ' · ' + ts(d.createdAt) + (d.parentId ? ' · 父稿 ' + d.parentId : ''), specLine, topicsLine].filter(Boolean).join(' · ')
+      return item(d.title, meta,
         el('details', {}, el('summary', {}, '展开正文 / 提纲'), el('pre', {}, (d.body || '').slice(0, 3000))))
     })
     var assessments = (st.assessments || []).slice(-8).reverse().map(function (a) {
-      return item('体检 ' + a.draftId, kv(a.dimensions) + ' · 仅质量诊断，非表现预测', null)
+      var specCount = a.specCheck && a.specCheck.issues ? a.specCheck.issues.length : 0
+      return item('体检 ' + a.draftId,
+        kv(a.dimensions) + ' · ' + (a.note || '仅质量诊断，非表现预测') + (specCount ? ' · 规格提示 ' + specCount + ' 条（仅供参考）' : ''), null)
     })
     return [formBox, el('div', { class: 'split' }, card('稿件', drafts.length + ' 篇', list(rows)), card('体检记录', '', list(assessments)))]
   }
