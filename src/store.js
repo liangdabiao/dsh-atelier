@@ -16,6 +16,7 @@ export function stateFile() { return join(dataDir(), 'state.json') }
 export function emptyState() {
   const state = { version: 1, updatedAt: new Date().toISOString() }
   for (const key of COLLECTIONS) state[key] = []
+  state.automation = { schedules: [], runs: [], lastSweep: '' }
   return state
 }
 
@@ -31,6 +32,9 @@ export function readState() {
     const parsed = JSON.parse(readFileSync(file, 'utf8'))
     const state = { ...emptyState(), ...parsed }
     for (const key of COLLECTIONS) if (!Array.isArray(state[key])) state[key] = []
+    if (!state.automation || typeof state.automation !== 'object') state.automation = emptyState().automation
+    if (!Array.isArray(state.automation.schedules)) state.automation.schedules = []
+    if (!Array.isArray(state.automation.runs)) state.automation.runs = []
     cache = { mtimeMs, file, state }
     return state
   } catch {

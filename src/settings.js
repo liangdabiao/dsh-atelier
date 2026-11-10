@@ -15,7 +15,9 @@ const DEFAULTS = {
   rpm: 30,
   perEndpointRps: 5,
   cacheTtl: 1800,
-  feedbackAutoEnabled: true,
+  // 定时提醒只投递 prompt，不花钱；自动回查会真实调用 TikHub，默认关闭，必须用户显式开启。
+  tnReminderEnabled: true,
+  feedbackAutoEnabled: false,
   apizBin: '',
   defaultImageModel: '',
   maxImagesPerRun: 3,
@@ -32,8 +34,17 @@ function atomicWrite(file, value) {
 
 export function readSettings() {
   try {
-    const raw = JSON.parse(readFileSync(settingsFile(), 'utf8'))
-    return { ...DEFAULTS, ...raw }
+    const parsed = JSON.parse(readFileSync(settingsFile(), 'utf8'))
+    const raw = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+    const merged = { ...DEFAULTS, ...raw }
+    // 兼容早期版本把布尔写成字符串的情况
+    for (const key of ['tnReminderEnabled', 'feedbackAutoEnabled']) {
+      if (typeof merged[key] !== 'boolean') merged[key] = merged[key] === true || merged[key] === 'true'
+    }
+    // 0.1.x 把 feedbackAutoEnabled 默认写成 true，但当年没有任何代码读它，用户也无从开启。
+    // 旧文件没有 tnReminderEnabled 字段：一律重新默认为关闭，避免升级后在用户不知情时消耗额度。
+    if (!('tnReminderEnabled' in raw)) merged.feedbackAutoEnabled = false
+    return merged
   } catch { return { ...DEFAULTS } }
 }
 
@@ -44,7 +55,9 @@ export function saveSettings(patch) {
     if (key === 'tikhubKey' && typeof patch[key] === 'string' && patch[key].trim().length < 8 && patch[key] !== '') {
       throw new Error('TikHub key 看起来不完整（至少 8 位）')
     }
-    next[key] = typeof DEFAULTS[key] === 'number' ? Number(patch[key]) || DEFAULTS[key] : String(patch[key])
+    if (typeof DEFAULTS[key] === 'number') next[key] = Number(patch[key]) || DEFAULTS[key]
+    else if (typeof DEFAULTS[key] === 'boolean') next[key] = patch[key] === true || patch[key] === 'true'
+    else next[key] = String(patch[key])
   }
   atomicWrite(settingsFile(), next)
   return publicSettings()
@@ -79,6 +92,7 @@ export function publicSettings() {
     rpm: s.rpm,
     perEndpointRps: s.perEndpointRps,
     cacheTtl: s.cacheTtl,
+    tnReminderEnabled: s.tnReminderEnabled,
     feedbackAutoEnabled: s.feedbackAutoEnabled,
     apizBin: s.apizBin,
     defaultImageModel: s.defaultImageModel,

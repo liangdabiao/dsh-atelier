@@ -131,6 +131,8 @@ async function doRadar(payload, options) {
       if (state.signals.some((s) => s.id === id)) continue
       const signal = store.addRecord(state, 'signals', {
         id, platform: result.platform, title: item.title, text: item.text, url: item.url,
+        // 真实平台作品 ID（signal.id 是标题哈希；热词/文本哈希也不能拿去当 aweme_id）
+        platformWorkId: item.idReal ? String(item.id || '') : '',
         sourceType: key, endpoint: result.key, params: result.params, fetchedAt: result.fetchedAt,
         baselineStats: item.stats || {}, rawRef: result.rawRef, cost: spec.cost, status: 'new',
         unverified: Boolean(result.unverified),
@@ -292,8 +294,14 @@ async function doDerive(ctx, payload) {
 async function doWatch(payload, options) {
   const platform = String(need(payload.platform, 'platform'))
   const kind = payload.kind === 'benchmark' ? 'benchmark' : 'published'
-  let workId = String(payload.workId || '')
+  let workId = String(payload.workId || payload.platformWorkId || '')
   let resolved = ''
+  // 从信号一键登记：signal.id 是标题哈希，真正能回查的是 platformWorkId
+  if (!workId && payload.signalId) {
+    const sig = store.readState().signals.find((s) => s.id === payload.signalId)
+    workId = String(sig?.platformWorkId || '')
+    if (!workId) fail('这条信号没有平台作品 ID（热搜词/联想词不是具体作品），请换一条作品类信号，或直接填作品 ID。')
+  }
   if (!workId && payload.shareUrl && platform === 'douyin') {
     try {
       const res = await callEndpoint('work.byurl', { shareUrl: payload.shareUrl }, options)
@@ -556,7 +564,10 @@ async function doExport(payload) {
   mkdirSync(dir, { recursive: true })
   const file = join(dir, `${draft.id}.${format}`)
   writeFileSync(file, content, 'utf8')
-  return ok(`已导出到 ${file}`, { file })
+  // 同时把内容回给页面，iframe 里才能直接下载（只给本机路径的话用户点不到）
+  return ok(`已导出 ${draft.title}（同时保存到 ${file}）`, {
+    file, content, filename: `${draft.title.replace(/[\\/:*?"<>|]/g, '_')}.${format}`,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -611,6 +622,10 @@ export function queryState(what, params = {}) {
   }
   if (what === 'health' || what === 'status') {
     return { ok: true, summary: stateSummary(state), data: health(state) }
+  }
+  if (what === 'automation') {
+    const a = state.automation || { schedules: [], runs: [], lastSweep: '' }
+    return { ok: true, summary: `定时提醒 ${a.schedules?.length || 0} 条 / 补跑记录 ${a.runs?.length || 0} 条`, data: a }
   }
   const map = { deconstructs: 'deconstructions', deconstruct: 'deconstructions' }
   const collection = map[what] || what

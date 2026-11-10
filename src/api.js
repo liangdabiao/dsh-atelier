@@ -5,8 +5,10 @@ import { fileURLToPath } from 'node:url'
 import { runAction, queryState, health, ACTIONS } from './pipeline.js'
 import { readState } from './store.js'
 import { publicSettings, saveSettings, clearSettings } from './settings.js'
-import { endpointList, validateWhitelist } from './providers/tikhub.js'
+import { endpointList, endpointDetails, validateWhitelist } from './providers/tikhub.js'
+import { fieldsFor } from './providers/endpoint-fields.js'
 import { specStatus, fetchLiveSpec, specPaths } from './providers/openapi.js'
+import { automationStatus, sweep, createTnReminders } from './schedule.js'
 
 export const BASE = '/atelier'
 const MAX_BODY = 256 * 1024
@@ -90,7 +92,16 @@ export async function handle(ctx, req, res, galleryDir) {
     if (path === '/api/actions' && req.method === 'GET') {
       return json(res, Object.entries(ACTIONS).map(([key, v]) => ({ key, ...v })))
     }
-    if (path === '/api/endpoints' && req.method === 'GET') return json(res, endpointList(url.searchParams.get('group')))
+    if (path === '/api/endpoints' && req.method === 'GET') {
+      const group = url.searchParams.get('group')
+      const details = new Map(endpointDetails(group).map((e) => [e.key, e]))
+      return json(res, endpointList(group).map((e) => ({
+        ...e,
+        required: details.get(e.key)?.required || [],
+        defaults: details.get(e.key)?.defaults || {},
+        fields: fieldsFor(details.get(e.key) || {}),
+      })))
+    }
     if (path === '/api/spec' && req.method === 'GET') {
       return json(res, { status: specStatus(), validation: validateWhitelist(specPaths()) })
     }
@@ -105,6 +116,16 @@ export async function handle(ctx, req, res, galleryDir) {
       return json(res, saveSettings(body))
     }
     if (path === '/api/settings' && req.method === 'DELETE') return json(res, clearSettings())
+    if (path === '/api/automation' && req.method === 'GET') return json(res, automationStatus(ctx))
+    if (path === '/api/automation' && req.method === 'POST') {
+      const body = await readJson(req)
+      const patch = {}
+      if (typeof body.tnReminderEnabled === 'boolean') patch.tnReminderEnabled = body.tnReminderEnabled
+      if (typeof body.feedbackAutoEnabled === 'boolean') patch.feedbackAutoEnabled = body.feedbackAutoEnabled
+      if (Object.keys(patch).length) saveSettings(patch)
+      const result = body.runNow ? await sweep(ctx, { force: true }) : null
+      return json(res, { ok: true, ...automationStatus(ctx), runNow: result })
+    }
     if (path === '/api/query' && req.method === 'POST') {
       const body = await readJson(req)
       return json(res, queryState(String(body.what || 'state'), body || {}))
@@ -117,6 +138,10 @@ export async function handle(ctx, req, res, galleryDir) {
       if (body.confirm) args.confirm = true
       if (body.dryRun) args.dryRun = true
       const result = await runAction(ctx, op, args)
+      if (op === 'watch' && result.ok && result.data?.work?.workId) {
+        try { result.data.automation = await createTnReminders(ctx, result.data.work) }
+        catch (err) { result.data.automation = { ok: false, reason: String(err?.message || err) } }
+      }
       return json(res, result, result.ok ? 200 : 200)
     }
 

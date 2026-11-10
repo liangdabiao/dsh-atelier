@@ -12,11 +12,12 @@
   <aside class="nav">
     <div class="brand"><span class="logo">A</span><div><strong>母题工作台</strong><small>dsh-atelier</small></div></div>
     <nav id="nav"></nav>
-    <div class="nav-foot"><div id="navStatus">连接中…</div><button class="link" id="btnAgent">交给 Agent ↗</button></div>
+    <div class="nav-foot"><div id="navStatus">连接中…</div><button class="link" id="btnGuide">? 使用说明</button><button class="link" id="btnAgent">交给 Agent ↗</button></div>
   </aside>
   <main>
-    <header class="topbar"><div><h1 id="pageTitle">总台</h1><p id="pageSub"></p></div><div class="top-actions"><button class="btn ghost" id="btnRefresh">刷新</button></div></header>
+    <header class="topbar"><div><h1 id="pageTitle">总台</h1><p id="pageSub"></p></div><div class="top-actions"><span id="busy" hidden></span><button class="btn ghost" id="btnRefresh">刷新</button></div></header>
     <div id="toast" class="toast" hidden></div>
+    <div id="result"></div>
     <section id="view" class="view"></section>
   </main>
 </div>

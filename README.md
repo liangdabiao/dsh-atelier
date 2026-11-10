@@ -5,10 +5,33 @@ DeepSeek Harness 0.2.x 插件。把「一个内容母题 → 多平台成品 →
 
 <img width="1505" height="1194" alt="image" src="https://github.com/user-attachments/assets/30468ed4-c99f-43ba-9100-5d1ac434fc26" />
 
-
 - 目标宿主：`0.2.1-rc.5` 稳定线（`engines.dsh: >=0.2.1-rc.2 <0.3.0`）
 - 零 npm 依赖：Host 纯 ESM 源码，`client` 用 `scripts/build.mjs` 拼成 ModuleLoader 单文件，装完即用
 - 数据：`$DSH_HOME/atelier/`（state.json 原子写 + mtime 重读 + 串行队列；settings.json 0600；raw/ assets/ exports/）
+
+## 怎么用（普通用户版）
+
+**不用记任何 id、不用写 JSON、不用理解参数名。** 页面共 7 页，按顺序点就行；每页顶部都有一句「这一步做什么 / 下一步去哪」。
+
+| 步骤 | 在哪一页 | 做什么 |
+|---|---|---|
+| ① | 总台 | 点一个「一键采集」（或随手记一条灵感），看「接下来做什么」建议 |
+| ② | 信源工作台 | 选数据源时会自动出现中文填空；信号卡片上直接「取详情 / 设为对标」 |
+| ③ | 拆解与方向 | 点「基于证据拆解」→「生成方向」→ 在候选里点「选它 → 去出稿」 |
+| ④ | 稿件与体检 | 点「出稿」，再「体检 / 派生 / 下载」，全部针对当前选中的稿件 |
+| ⑤ | 复盘与规则 | 发布前锁定判断；发布后登记作品，T+1/3/7 记数据，最后人工审核规则 |
+| — | 使用说明 | 三分钟上手、完整流程图、名词解释、常见问题，页面内随时可查 |
+
+**也可以不动手，直接在 dsh 对话里说人话**：
+
+```text
+帮我采一下抖音热搜，基于素材做拆解并给 3 个方向；
+用第二个方向写一篇小红书稿，再做一次体检
+```
+
+两个入口写的是同一份数据：对话里生成的，页面立刻能看到；页面上改的，Agent 也能查到。
+
+**常见问题**：没填 TikHub key 也能写稿（只有采集/回查需要）；模型用 dsh 当前登录的默认模型，插件不带密钥；自动回查默认关闭，不会偷偷消耗额度；数据全在本机，没有云端后端。更完整的说明在插件「使用说明」页。
 
 ## 安装
 
@@ -19,7 +42,7 @@ git clone https://github.com/liangdabiao/dsh-atelier.git
 cd dsh-atelier
 npm run build                 # 生成 dist/client.js
 npm test                      # 免额度，node --test
-node scripts/selftest.mjs     # 文件树 / 产物 / 文档守卫
+node scripts/selftest.mjs     # 文件树 / 产物 / UX / 文档守卫
 dsh plugin --profile web add link:D:/dsh-atelier
 dsh --profile web --dump-config | grep atelier   # 看到 bundle 声明即装好
 dsh --profile web --no-open --port 4399         # 浏览器打开侧栏「母题工作台」
@@ -56,24 +79,26 @@ dsh --profile web --no-open --port 4399         # 浏览器打开侧栏「母题
 ## 双入口
 
 **对话（Agent）**：`atelier`（单工具 action 枚举）+ `atelier_query`（只读）。
-action：`capture / radar / evidence / deconstruct / angles / draft / review / derive / watch / predict / feedback / retro / rule / image / spec / export`，
-参数放 `payload` JSON 字符串；高成本动作把 `confirm` 设为 true。
+action：`capture / radar / evidence / deconstruct / angles / draft / review / derive / watch / predict / feedback / retro / rule / image / spec / export`。
+`payload` **直接传参数对象**（不要写成 JSON 字符串）；旧的字符串写法仍兼容。高成本动作把 `confirm` 设为 true。不填 id 时多数动作自动使用最近一条记录。
 
 ```
-atelier(action="radar", payload="{\"endpointKey\":\"note.search\",\"params\":{\"keyword\":\"内容创作\"}}")
-atelier(action="deconstruct", payload="{}")
-atelier_query(what="evidence")
+atelier(action="radar", payload={"endpointKey": "hot.search", "limit": 10})
+atelier(action="spec", payload={"platform": "小红书"})
+atelier_query(what="automation")
 ```
 
-查平台文案规格（不联网、不花额度）：
-```
-atelier(action="spec", payload="{\"platform\":\"小红书\"}")
-atelier(action="spec", payload="{\"listPlatforms\":true}")
-```
+**侧栏页面**：总台 / 信源工作台 / 拆解与方向 / 稿件与体检 / 复盘与规则 / 设置 / 使用说明。
+页面与工具都调 `src/pipeline.js` 的 `runAction`，写同一份 `state.json`。稿件卡片会显示 `specCheck` 结果与话题，体检记录会单列「规格提示」条数。
 
-**侧栏页面**：总台 / 信源工作台 / 拆解与方向 / 稿件与体检 / 复盘与规则 / 设置。
-页面与工具都调 `src/pipeline.js` 的 `runAction`，写同一份 `state.json`。
-稿件卡片会显示 `specCheck` 结果与话题，体检记录会单列「规格提示」条数。
+## 定时自动化（T+1/3/7）
+
+用 dsh 宿主自带的持久化定时服务 `ctx.schedule.create(sessionId, {prompt,title,at}, signal)`：登记作品时自动建三个一次性任务，到点把 prompt 投递回会话唤醒 Agent。另有 `ctx.interval` 每小时「补跑扫描」，客户端没开或重启后也能补回数据（同一任务最多重试 2 次，避免刷额度）。
+
+- **默认只提醒、不花钱**：`tnReminderEnabled: true`（到点问一句「要不要回查」）；`feedbackAutoEnabled: false`（真正自动调 TikHub 写快照，会消耗额度，必须显式打开）。
+- 两种模式都不会自动激活经验规则 —— 规则仍需人工审核。
+- 宿主没有 schedule 服务或没有活跃会话时，页面会如实显示原因，由补跑扫描兜底，不假装已排好。
+- 页面「复盘与规则 → 自动化」可改开关、看待回查与补跑记录、点「立即检查并补跑」。
 
 ## 平台规格与指标字段对照
 
@@ -84,8 +109,8 @@ atelier(action="spec", payload="{\"listPlatforms\":true}")
 只作写作阶段的合规提示，不拦截发布、不预测表现；发布前一律以平台实际限制为准。
 
 - `draft` / `derive`：把规格压成一行约束注入派生提示词，稿件落库时附 `topics[]`（去 `#`、精确去重、不臆造）与 `specCheck`；
-- `review`：模型只做质量诊断，规格合规另走**确定性检查**，issues 带 `path / code / limit / actual`，可定点改字段后重检；未收录平台跳过检查，不臆造限制；
-- `feedback`：原有 `metrics`（短名）保持不变，额外写 `metricsNormalized` 对照统一指标字段（`viewCount / playCount / likeCount / commentCount / collectCount / shareCount / saveCount / watchTimeSeconds ...`）；未知字段进 `unmapped` 保留，不丢数、不补造，复盘 baseline 增量仍按原 `metrics` 计算。
+- `review`：模型只做质量诊断，规格合规另走**确定性检查**，issues 带 `path / code / limit / actual`；未收录平台跳过检查，不臆造限制；
+- `feedback`：原有 `metrics`（短名）保持不变，额外写 `metricsNormalized` 对照统一指标字段；未知字段进 `unmapped` 保留，不丢数、不补造。
 
 数值示例：小红书 标题 ≤20 / 正文 ≤1000 / 9 图 / 5 话题；抖音 30 / 1000 / 12 图 / 5 话题；公众号 64 / 20000 / 20 图且不支持原生话题；B站 话题总长 ≤199。
 
@@ -97,6 +122,7 @@ atelier(action="spec", payload="{\"listPlatforms\":true}")
 | 发布后数据反馈 | TikTok analytics 4 条、抖音 billboard 趋势/画像/词云，以及按 ID 重拉详情里的公开 statistics | T+1/3/7 `snapshots`，`origin=api \| manual \| api_failed`；与锁定的 `predictions` 校准；规则建议引用真实指标 |
 
 **一次采集两次使用**：拆解时给对标作品记 baseline，T+N 回查算增量，让规则建议锚在可回溯数据上。
+信号落库同时保存 `platformWorkId`（真实平台作品 ID）；`signal.id` 只是标题哈希，**不能当作品 ID 用**（页面卡片按钮已改用前者）。
 
 端点白名单在 `src/providers/endpoints.json`（约 30 条，逐条对照官方 OpenAPI V5.3.2 校验）；
 设置页可联网刷新 spec 并列出失效路径，404 时用 `suggestPaths` 给同平台相近建议，不静默换路径出数。
@@ -117,11 +143,12 @@ TikTok 有专用 analytics；**抖音没有通用 analytics**，主要靠按 ID 
 
 ## 与方案的两处工程取舍
 
-1. 页面用 `iframe + gallery/` 原生 SPA（骨架已验证的路线），而不是方案建议的 slot 内 React 组件；主题用 `<head>` 同步脚本 + postMessage 跟随，数据一律 `textContent` 渲染。后续可替换成 slot 内组件。
+1. 页面用 `iframe + gallery/` 原生 SPA（骨架已验证的路线），而不是方案建议的 slot 内 React 组件；主题用 `<head>` 同步脚本 + postMessage 跟随，数据一律 `textContent` 渲染。
 2. 零 npm 依赖，因此没有 `Config`(schemastery) 导出；运行参数走 `settings.json` + `/api/settings`。功能等价，换来了「装完即可运行、不受 npm peer 冲突影响」。
 
 ## 测试
 
-`npm test`（6 组 32 例：store / tikhub / api / pipeline / host / spec）+ `node scripts/selftest.mjs`，全部离线、不花额度。
+`npm test`（全部离线、不花额度）+ `node scripts/selftest.mjs`。
 测试覆盖：原子写与 mtime 重读、端点白名单对照官方 spec、401 不重试 / 404 建议 / 缓存命中不重复请求、
-采集与回查的证据链、origin 不混算、锁定不可覆盖、规则未审核不进 addendum、模型不可用显式失败、鉴权与 SSRF 防护。
+采集与回查的证据链、origin 不混算、锁定不可覆盖、规则未审核不进 addendum、模型不可用显式失败、鉴权与 SSRF 防护，
+以及本轮的 UX 回归（端点字段自动生成、payload 对象化、真实作品 ID、导出可下载、布尔开关、定时任务到期与重试上限、自动回查默认不花钱）。

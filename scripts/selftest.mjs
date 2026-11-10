@@ -20,7 +20,8 @@ check(/- id: atelier/.test(read('cordis.patch.yml')), 'cordis.patch.yml insert i
 for (const file of ['src/host.js', 'src/pipeline.js', 'src/tools.js', 'src/skills.js', 'src/api.js', 'src/store.js',
   'src/settings.js', 'src/ai.js', 'src/client.js', 'src/providers/tikhub.js', 'src/providers/openapi.js',
   'src/providers/apiz.js', 'src/providers/endpoints.json', 'src/providers/platform-specs.js',
-  'src/providers/platform-specs.json', 'scripts/extract-platform-specs.mjs',
+  'src/providers/platform-specs.json', 'src/providers/endpoint-fields.js', 'src/schedule.js',
+  'scripts/extract-platform-specs.mjs',
   'gallery/index.html', 'gallery/app.js',
   'gallery/style.css', 'gallery/scheme.js', 'skills/atelier-workflow/SKILL.md', 'README.md']) {
   check(existsSync(join(root, file)), `缺少文件 ${file}`)
@@ -51,6 +52,17 @@ check(douyinSpec?.contentLimits?.maxTitleLength === 30 && douyinSpec?.topic?.max
 check(specDoc.metricMap?.views === 'viewCount' && specDoc.metricFields?.works?.includes('watchTimeSeconds'), '统一指标字段对照')
 check(/platform-specs/.test(read('src/pipeline.js')), 'pipeline 应接入平台规格模块')
 
+// 用户体验守卫：这两类输入是实测过「普通人完全用不了」的坑，防止改回去
+const app = read('gallery/app.js')
+check(!/参数（JSON）|手工补录指标（JSON/.test(app), '页面不应再要求用户手写 JSON 参数')
+check(/platformWorkId/.test(app), '信号卡片必须用真实作品 ID，不能拿 sig_ 哈希当 aweme_id')
+check(/pageGuide|使用说明/.test(app), '必须有人用的使用说明页')
+check(/field-grid|buildParamFields/.test(app), '端点参数要有自动生成的字段表单')
+check(/feedbackAutoEnabled: false/.test(read('src/settings.js')), '自动回查默认关闭（会消耗额度，不能默认替用户花钱）')
+check(/installAutomation/.test(read('src/host.js')), 'Host 必须装载定时自动化')
+check(/type: 'object'/.test(read('src/tools.js')) && /normalizePayload/.test(read('src/tools.js')), '工具 payload 应直接收对象')
+check(/怎么用/.test(read('README.md')), 'README 要有普通用户向的使用说明')
+
 // 文档一致性守卫：三处数据纪律必须同在，避免某处被改漏（借 dsh-seekmoney 实测做法）
 const skill = read('skills/atelier-workflow/SKILL.md')
 const host = read('src/host.js')
@@ -64,4 +76,4 @@ if (errors.length) {
   console.error('[selftest] 失败：\n- ' + errors.join('\n- '))
   process.exit(1)
 }
-console.log(`[selftest] 通过：${endpoints.length} 个白名单端点 / ${specDoc.platforms.length} 个平台规格（advisory），文件树/产物/文档守卫全部 OK`)
+console.log(`[selftest] 通过：${endpoints.length} 个白名单端点 / ${specDoc.platforms.length} 个平台规格（advisory），文件树 / 产物 / UX / 文档守卫全部 OK`)

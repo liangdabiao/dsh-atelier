@@ -29,6 +29,11 @@ export function endpointList(group) {
     .map(({ key, label, group: g, platform, cost, limited, path }) => ({ key, label, group: g, platform, cost, limited: limited || '', path }))
 }
 
+/** 给 UI 生成参数表单用的完整定义（只含公开 API 元数据，无密钥）。 */
+export function endpointDetails(group) {
+  return ENDPOINTS.filter((e) => !group || e.group === group).map((e) => ({ ...e, limited: e.limited || '' }))
+}
+
 // ---------------------------------------------------------------------------
 // 归一化：不同端点返回结构差异极大，先按候选路径取数组，再 DFS 兜底，最后统一字段。
 // 未经真实样本验真的端点会带 unverified 标记，原始响应一律落盘可查。
@@ -120,11 +125,13 @@ export function normalizeItem(raw, kind) {
   const text = firstString(item, ['content', 'text', 'desc', 'description']) || firstString(base, ['desc', 'content', 'text'])
   const author = firstString(item, ['author', 'nickname', 'user.nickname', 'author.nickname']) ||
     firstString(base, ['author.nickname', 'user.nickname', 'nickname'])
-  const id = String(firstString(item, ['id', 'note_id', 'aweme_id', 'item_id', 'word']) ||
-    firstString(base, ['aweme_id', 'note_id', 'id', 'itemId']) || createHash('sha1').update(title + text).digest('hex').slice(0, 16))
+  // 只有平台的作品 ID 字段才算「可按 ID 回查」；热词(word) 与标题哈希都不是作品 ID。
+  const realId = firstString(item, ['note_id', 'aweme_id', 'item_id', 'id']) ||
+    firstString(base, ['aweme_id', 'note_id', 'itemId', 'id'])
+  const id = String(realId || firstString(item, ['word']) || createHash('sha1').update(title + text).digest('hex').slice(0, 16))
   const url = firstString(item, ['url', 'share_url', 'link']) || firstString(base, ['share_url', 'url'])
   return {
-    id,
+    id, idReal: Boolean(realId),
     title: (title || text || '(无标题)').slice(0, 300),
     text: text.slice(0, 3000),
     author,
